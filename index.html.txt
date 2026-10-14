@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق التوصيل العماني</title>
+    <!-- Tailwind CSS للتصميم العصري -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- استدعاء خريطة Google Maps الحقيقية (ضع مفتاحك بدل YOUR_API_KEY) -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 220px; border-radius: 0.75rem; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 pb-20">
+
+    <!-- شريط العلوى -->
+    <header class="bg-red-600 text-white p-4 shadow-md sticky top-0 z-50 flex justify-between items-center">
+        <h1 class="text-xl font-bold">تطبيق التوصيل العماني 🇴🇲</h1>
+        <button onclick="toggleCart()" class="bg-white text-red-600 px-3 py-1 rounded-full font-bold text-sm shadow flex items-center gap-1">
+            🛒 السلة (<span id="cart-count">0</span>)
+        </button>
+    </header>
+
+    <main class="max-w-md mx-auto p-4 space-y-5">
+
+        <!-- أزرار التنقل بين الأقسام الرئيسية -->
+        <div class="grid grid-cols-4 gap-1 bg-white p-1 rounded-xl shadow-sm text-xs font-bold text-center">
+            <button onclick="switchTab('menu')" id="btn-menu" class="py-2.5 text-red-600 bg-red-50 rounded-lg">الرئيسية</button>
+            <button onclick="switchTab('driver')" id="btn-driver" class="py-2.5 text-gray-500">المندوب 🛵</button>
+            <button onclick="switchTab('restaurants')" id="btn-restaurants" class="py-2.5 text-gray-500">اشتراك 30 ر.ع</button>
+            <button onclick="switchTab('admin')" id="btn-admin" class="py-2.5 text-gray-500">الموظفين</button>
+        </div>
+
+        <!-- 1. قسم قائمة الطعام وتصفح الوجبات -->
+        <section id="tab-menu" class="space-y-4">
+            <div class="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 rounded-2xl shadow-sm">
+                <h2 class="text-lg font-bold">أهلاً بك في تطبيق التوصيل المحلي</h2>
+                <p class="text-xs text-red-100 mt-1">اطلب أشهى المأكولات العمانية بضغطة زر واحدة!</p>
+            </div>
+
+            <h3 class="font-bold text-gray-700 text-sm">القائمة المتاحة</h3>
+            <div class="grid grid-cols-1 gap-3">
+                <div class="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between border">
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-sm">مكبوس لحم عماني</h4>
+                        <p class="text-xs text-gray-500">وجبة تقليدية فاخرة</p>
+                        <span class="text-red-600 font-bold text-xs">3.500 ر.ع</span>
+                    </div>
+                    <button onclick="addToCart('مكبوس لحم عماني', 3.5)" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">إضافة</button>
+                </div>
+                <div class="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between border">
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-sm">مشكاك دجاج (سيخين)</h4>
+                        <p class="text-xs text-gray-500">مشاوي طازجة بالتتبيلة الخاصة</p>
+                        <span class="text-red-600 font-bold text-xs">1.200 ر.ع</span>
+                    </div>
+                    <button onclick="addToCart('مشكاك دجاج', 1.2)" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">إضافة</button>
+                </div>
+                <div class="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between border">
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-sm">مقالاي دجاج</h4>
+                        <p class="text-xs text-gray-500">طبق شعبي ساخن مع الخبز</p>
+                        <span class="text-red-600 font-bold text-xs">2.000 ر.ع</span>
+                    </div>
+                    <button onclick="addToCart('مقالاي دجاج', 2.0)" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">إضافة</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. لوحة تحكم المندوب (قبول / رفض / بدء التوصيل) -->
+        <section id="tab-driver" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <h2 class="text-base font-bold text-gray-800 mb-1">لوحة تحكم السائق / المندوب</h2>
+                <p class="text-xs text-gray-500 mb-4">الطلبات الواردة الجديدة تنتظر قرارك للبدء بالتوصيل.</p>
+                
+                <div id="driver-orders-list" class="space-y-3">
+                    <div class="text-center py-6 text-gray-400 text-sm">لا توجد طلبات جديدة حالياً</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. قسم اشتراك المطاعم (سهل وسريع بقيمة 30 ريال) -->
+        <section id="tab-restaurants" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-red-100">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-base font-bold text-red-600">تسجيل مطعم جديد</h2>
+                    <span class="bg-red-50 text-red-600 text-xs px-2 py-1 rounded-full font-bold">30 ر.ع / شهرياً</span>
+                </div>
+                <p class="text-xs text-gray-500 mb-4">اشترك الآن بكل سهولة وضع مطعمك أمام آلاف الزبائن في السلطنة.</p>
+                
+                <form id="easy-subscription-form" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">اسم المطعم أو المقهى</label>
+                        <input type="text" id="sub-res-name" placeholder="مثال: مطعم ومشاوي مسقط" required class="w-full p-2.5 border rounded-xl text-sm focus:outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">رقم التواصل (واتساب)</label>
+                        <input type="text" id="sub-phone" placeholder="968XXXXXXXX" required class="w-full p-2.5 border rounded-xl text-sm focus:outline-none focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">طريقة الدفع المختارة</label>
+                        <select class="w-full p-2.5 border rounded-xl text-sm bg-white">
+                            <option>تحويل بنكي مباشر (بنك مسقط / تنمية)</option>
+                            <option>الدفع عبر البطاقة البنكية (Thawani / PayPlus)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:bg-red-700 transition">تفعيل الاشتراك الفوري (30 ر.ع)</button>
+                </form>
+            </div>
+
+            <div class="space-y-2">
+                <h3 class="font-bold text-gray-700 text-xs">المطاعم المشتركة حالياً:</h3>
+                <div id="active-restaurants-list" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- 4. قسم الموظفين والإدارة -->
+        <section id="tab-admin" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <h2 class="text-base font-bold text-gray-800 mb-2">إدارة الموظفين والمناديب</h2>
+                <form id="employee-form" class="space-y-3">
+                    <input type="text" id="emp-name" placeholder="اسم المندوب الجديد" required class="w-full p-2.5 border rounded-xl text-sm">
+                    <input type="text" id="emp-phone" placeholder="رقم الهاتف" required class="w-full p-2.5 border rounded-xl text-sm">
+                    <button type="submit" class="w-full bg-gray-800 text-white py-2.5 rounded-xl font-bold text-sm">إضافة وحفظ المندوب</button>
+                </form>
+            </div>
+            <div id="employees-list" class="space-y-2"></div>
+        </section>
+
+        <!-- قسم خريطة Google Maps التفاعلية الحقيقية -->
+        <section class="bg-white p-4 rounded-xl shadow-sm border space-y-2">
+            <h2 class="text-xs font-bold text-gray-700">موقع التغطية الحقيقية (عمان - مسقط)</h2>
+            <div id="map"></div>
+        </section>
+
+    </main>
+
+    <!-- نافذة سلة الطلبات العائمة -->
+    <div id="cart-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-end justify-center">
+        <div class="bg-white w-full max-w-md rounded-t-2xl p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">سلة الطلبات</h3>
+                <button onclick="toggleCart()" class="text-gray-500 font-bold">✕</button>
+            </div>
+            <div id="cart-items" class="space-y-2 text-sm">
+                <p class="text-gray-400 text-center py-4 text-xs">السلة فارغة حالياً</p>
+            </div>
+            <div class="border-t pt-2 flex justify-between font-bold text-sm">
+                <span>المجموع الكلي:</span>
+                <span id="cart-total" class="text-red-600">0.000 ر.ع</span>
+            </div>
+            <button onclick="checkoutOrder()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-sm shadow-md">إرسال الطلب وإشعار المندوب</button>
+        </div>
+    </div>
+
+    <script>
+        // دالة تشغيل خرائط جوجل الحقيقية
+        function initMap() {
+            const muscat = { lat: 23.5880, lng: 58.3829 };
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: muscat,
+            });
+            new google.maps.Marker({
+                position: muscat,
+                map: map,
+                title: "مركز التوصيل الرئيسي - مسقط",
+            });
+        }
+
+        // التبديل بين الأقسام
+        function switchTab(tab) {
+            ['menu', 'driver', 'restaurants', 'admin'].forEach(t => {
+                document.getElementById('tab-' + t).classList.add('hidden');
+                document.getElementById('btn-' + t).className = "py-2.5 text-gray-500 rounded-lg";
+            });
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.getElementById('btn-' + tab).className = "py-2.5 text-red-600 bg-red-50 font-bold rounded-lg";
+        }
+
+        // سلة المشتريات
+        let cart = [];
+        function addToCart(name, price) {
+            let item = cart.find(i => i.name === name);
+            if (item) { item.qty++; } else { cart.push({ name, price, qty: 1 }); }
+            updateCartUI();
+            alert("تمت إضافة (" + name + ") للسلة!");
+        }
+
+        function updateCartUI() {
+            let count = cart.reduce((sum, i) => sum + i.qty, 0);
+            document.getElementById('cart-count').innerText = count;
+            let container = document.getElementById('cart-items');
+            if (cart.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4 text-xs">السلة فارغة حالياً</p>';
+                document.getElementById('cart-total').innerText = "0.000 ر.ع";
+                return;
+            }
+            let html = '';
+            let total = 0;
+            cart.forEach((item, index) => {
+                let itemTotal = item.price * item.qty;
+                total += itemTotal;
+                html += `
+                    <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl">
+                        <div>
+                            <p class="font-bold text-xs">${item.name}</p>
+                            <p class="text-xs text-gray-500">${item.price} ر.ع × ${item.qty}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-red-600 text-xs">${itemTotal.toFixed(3)} ر.ع</span>
+                            <button onclick="removeFromCart(${index})" class="text-red-500 text-xs px-2 py-1 bg-red-50 rounded">حذف</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            document.getElementById('cart-total').innerText = total.toFixed(3) + " ر.ع";
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function toggleCart() {
+            document.getElementById('cart-modal').classList.toggle('hidden');
+        }
+
+        // إرسال الطلب وحفظه ليظهر في لوحة تحكم المندوب
+        function checkoutOrder() {
+            if (cart.length === 0) { alert("السلة فارغة!"); return; }
+            let totalText = document.getElementById('cart-total').innerText;
+            
+            let newOrder = {
+                id: Math.floor(1000 + Math.random() * 9000),
+                items: [...cart],
+                total: totalText,
+                status: 'في انتظار قبول المندوب'
+            };
+
+            let orders = JSON.parse(localStorage.getItem('driverOrders') || '[]');
+            orders.unshift(newOrder);
+            localStorage.setItem('driverOrders', JSON.stringify(orders));
+
+            cart = [];
+            updateCartUI();
+            toggleCart();
+            alert("تم إرسال طلبك بنجاح! سيتم تنبيه مندوب التوصيل فوراً.");
+            loadDriverOrders();
+            switchTab('driver');
+        }
+
+        // تحميل وعرض الطلبات في لوحة تحكم المندوب
+        function loadDriverOrders() {
+            let orders = JSON.parse(localStorage.getItem('driverOrders') || '[]');
+            let container = document.getElementById('driver-orders-list');
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">لا توجد طلبات جديدة حالياً</div>';
+                return;
+            }
+
+            container.innerHTML = orders.map((order, idx) => `
+                <div class="bg-gray-50 p-3 rounded-xl border space-y-2">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <span class="font-bold text-xs text-red-600">طلب رقم #${order.id}</span>
+                        <span class="text-xs px-2 py-0.5 rounded font-bold ${
+                            order.status.includes('قبول') ? 'bg-yellow-100 text-yellow-700' :
+                            order.status.includes('بدء') ? 'bg-blue-100 text-blue-700' :
+                            order.status.includes('اكتمل') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }">${order.status}</span>
+                    </div>
+                    <div class="text-xs text-gray-600">
+                        ${order.items.map(i => `• ${i.name} (×${i.qty})`).join('<br>')}
+                        <div class="mt-1 font-bold text-gray-800">الإجمالي: ${order.total}</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="updateOrderStatus(${idx}, 'تم قبول الطلب')" class="bg-blue-600 text-white py-1.5 rounded-lg text-xs font-bold">قبول الطلب</button>
+                        <button onclick="updateOrderStatus(${idx}, 'تم رفض الطلب')" class="bg-red-600 text-white py-1.5 rounded-lg text-xs font-bold">رفض الطلب</button>
+                        <button onclick="updateOrderStatus(${idx}, 'بدء العمل / التوصيل 🛵')" class="bg-amber-500 text-white py-1.5 rounded-lg text-xs font-bold col-span-2">بدء العمل والتوصيل</button>
+                        <button onclick="updateOrderStatus(${idx}, 'اكتمل التوصيل بنجاح ✅')" class="bg-green-600 text-white py-1.5 rounded-lg text-xs font-bold col-span-2">تم التسليم بنجاح</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateOrderStatus(index, newStatus) {
+            let orders = JSON.parse(localStorage.getItem('driverOrders') || '[]');
+            orders[index].status = newStatus;
+            localStorage.setItem('driverOrders', JSON.stringify(orders));
+            loadDriverOrders();
+        }
+
+        // اشتراك المطاعم (سهل وسريع)
+        document.getElementById('easy-subscription-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            let name = document.getElementById('sub-res-name').value;
+            let phone = document.getElementById('sub-phone').value;
+            
+            let restaurants = JSON.parse(localStorage.getItem('subscribedRestaurants') || '[]');
+            restaurants.push({ name, phone, plan: '30 ر.ع شهرياً' });
+            localStorage.setItem('subscribedRestaurants', JSON.stringify(restaurants));
+
+            alert("مبارك! تم تفعيل اشتراك مطعم (" + name + ") بنجاح.");
+            this.reset();
+            loadSubscribedRestaurants();
+        });
+
+        function loadSubscribedRestaurants() {
+            let list = JSON.parse(localStorage.getItem('subscribedRestaurants') || '[]');
+            let container = document.getElementById('active-restaurants-list');
+            if (list.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400">لا توجد مطاعم مسجلة بعد</div>';
+                return;
+            }
+            container.innerHTML = list.map(r => `
+                <div class="bg-white p-2.5 rounded-xl border flex justify-between items-center text-xs">
+                    <div>
+                        <span class="font-bold">${r.name}</span>
+                        <span class="block text-gray-400">هاتف: ${r.phone}</span>
+                    </div>
+                    <span class="bg-green-100 text-green-700 px-2 py-1 rounded font-bold">مشترك نشط</span>
+                </div>
+            `).join('');
+        }
+
+        // إدارة الموظفين
+        document.getElementById('employee-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            let name = document.getElementById('emp-name').value;
+            let phone = document.getElementById('emp-phone').value;
+            let list = JSON.parse(localStorage.getItem('employees') || '[]');
+            list.push({ name, phone });
+            localStorage.setItem('employees', JSON.stringify(list));
+            alert("تمت إضافة الموظف بنجاح!");
+            this.reset();
+            loadEmployees();
+        });
+
+        function loadEmployees() {
+            let emps = JSON.parse(localStorage.getItem('employees') || '[]');
+            let container = document.getElementById('employees-list');
+            container.innerHTML = emps.map(emp => `
+                <div class="bg-white p-2.5 rounded-xl border flex justify-between items-center text-xs">
+                    <div>
+                        <span class="font-bold">${emp.name}</span>
+                        <span class="block text-gray-400">${emp.phone}</span>
+                    </div>
+                    <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">مندوب</span>
+                </div>
+            `).join('');
+        }
+
+        // تحميل البيانات عند فتح التطبيق
+        loadDriverOrders();
+        loadSubscribedRestaurants();
+        loadEmployees();
+    </script>
+</body>
+</html>
